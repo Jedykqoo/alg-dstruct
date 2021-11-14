@@ -62,57 +62,86 @@ TEST(ListCreation_test, CreateList_returnPointerToFirstElement) {
 	head = CreateList();
 
 	EXPECT_TRUE(head);
-	DeleteList(head);
+	free(head);
 }
 
 
-TEST(DeletingAList_test, DeleteList_returnPointerToFirstElement) {//?????????????????????
-	list_xor_t* head;
+TEST(DeletingAList_test, DeleteList_returnPointerToFirstElement) {
+	list_xor_t* element1 = (list_xor_t*)malloc(sizeof(list_xor_t));
+	list_xor_t* element2 = (list_xor_t*)malloc(sizeof(list_xor_t));
+	list_xor_t* head = element1;
 
-	head = CreateList();
+	element1->data = "test 1";
+	element1->xor = element2;
+	element2->data = "test 2";
+	element2->xor = element1;
 
 	DeleteList(head);
-	EXPECT_FALSE(head == NULL);
+
+	EXPECT_FALSE(element1->data == "test 1");
+	EXPECT_FALSE(element2->data == "test 2");
 }
 
 
 TEST(AddElementToList_test, Push_Creation1Element_returnPointerToTheAddedElement) {
-	list_xor_t list;
-	list_xor_t* head = &list;
-	list.xor = NULL;
-	list_xor_t* p;
-	char* str;
+	list_xor_t* element1 = (list_xor_t*)malloc(sizeof(list_xor_t));
+	list_xor_t* head = element1;
+	list_xor_t* element2;
+	char* str = "test 2";
 
-	str = "test";
-	p = Push(&head, str);
+	element1->xor = NULL;
+	element1->data = "test 1";
 
-	EXPECT_FALSE(head == p);
-	EXPECT_FALSE(p-> xor == NULL);
-	EXPECT_EQ(p->data, str);
+	element2 = Push(element1, str);
+
+	EXPECT_FALSE(head == element2);
+	EXPECT_FALSE(element2-> xor == NULL);
+	EXPECT_EQ(element2->data, str);
+
+	free(element1);
+	free(element2);
 }
 
 TEST(AddElementToList_test, Push_Creation2Element_returnPointerToTheAddedElement) {
-	list_xor_t list;
-	list_xor_t* head = &list;
-	list.xor = NULL;
-	list_xor_t* p1, * p2;
-	char* str_1, * str_2;
+	list_xor_t* element1 = (list_xor_t*)malloc(sizeof(list_xor_t));
+	list_xor_t* element2, * element3;
+	list_xor_t* head = element1;
+	char* str2 = "test 2", *str3 = "test 3";
 
-	str_1 = "test 1";
-	p1 = Push(&head, str_1);
-	str_2 = "test 2";
-	p2 = Push(&head, str_2);
+	element1->data = NULL;
+	element1->xor = NULL;
 
-	EXPECT_FALSE(head == p1);
-	EXPECT_FALSE(head == p2);
-	EXPECT_FALSE(p1 == p2);
-	EXPECT_FALSE(p1 == NULL);
-	EXPECT_FALSE(p2 == NULL);
+	element2 = Push(element1, str2);
+	element3 = Push(element2, str3);
 
-	EXPECT_FALSE(p1-> xor == NULL);
+	EXPECT_FALSE(head == element2);
+	EXPECT_FALSE(head == element3);
+	EXPECT_FALSE(element2 == element3);
+	EXPECT_FALSE(element2 == NULL);
+	EXPECT_FALSE(element3 == NULL);
 
-	EXPECT_EQ(p1->data, str_1);
-	EXPECT_EQ(p2->data, str_2);
+	EXPECT_EQ(element1->xor, element2);
+	EXPECT_EQ(element2->xor, (list_xor_t*)((intptr_t)element1 ^ (intptr_t)element3));
+	EXPECT_EQ(element3->xor, element2);
+	EXPECT_EQ(element2->data, str2);
+	EXPECT_EQ(element3->data, str3);
+
+	free(element1);
+	free(element2);
+	free(element3);
+}
+
+TEST(AddElementToList_test, Push_NullHeadPointer_returnPointerToTheAddedElement) {
+	list_xor_t* element1 = NULL;
+	list_xor_t* element2;
+	char* str = "test 2";
+
+	element2 = Push(element1, str);
+
+	EXPECT_TRUE(element2 == NULL);
+
+	free(element1);
+	free(element2);
 }
 
 
@@ -129,16 +158,16 @@ TEST(Iteration_test, Iterating_EmptyList_returnCorrectValue) {
 }
 
 TEST(Iteration_test, Iterating_AtTheBeginningList_returnCorrectValue) {
-	list_xor_t p1, p2;
-	p1.xor = &p2;
-	p2.xor = &p1;
-	list_xor_t* head = &p1;
+	list_xor_t element1, element2;
+	element1.xor = &element2;
+	element2.xor = &element1;
+	list_xor_t* head = &element1;
 	list_xor_t* prevHead = NULL;
 
 	Iterating(&head, &prevHead);
 
-	EXPECT_EQ(head, &p2);
-	EXPECT_EQ(prevHead, &p1);
+	EXPECT_EQ(head, &element2);
+	EXPECT_EQ(prevHead, &element1);
 }
 
 TEST(Iteration_test, Iterating_AtTheMiddleList_returnCorrectValue) {
@@ -404,7 +433,6 @@ TEST(DeletingAnElementByAddress_test, DeletElemAddress_EmptyList_returnNULL) {
 
 	EXPECT_TRUE(save == pointer);
 	EXPECT_TRUE(pointer);
-	free(dummyElement);
 }
 
 TEST(DeletingAnElementByAddress_test, DeletElemAddress_NoPointerMatch_returnCorrectPointers) {
@@ -426,5 +454,6 @@ TEST(DeletingAnElementByAddress_test, DeletElemAddress_NoPointerMatch_returnCorr
 	EXPECT_EQ(element1.xor, &element2);
 	EXPECT_EQ(element2.xor, xor2);
 	EXPECT_EQ(element3.xor, &element2);
+
 	free(dummyElement);
 }

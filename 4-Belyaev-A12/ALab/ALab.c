@@ -24,7 +24,7 @@ list_xor_t* CreateList() {
 	return element;
 }
 
-list_xor_t* Push(list_xor_t** head, char* str) {
+list_xor_t* Push(list_xor_t* head, char* str) {
 	list_xor_t* newElement = (list_xor_t*)malloc(sizeof(list_xor_t));
 
 	if (newElement == NULL) {
@@ -32,10 +32,14 @@ list_xor_t* Push(list_xor_t** head, char* str) {
 	}
 	else {
 		newElement->data = str;
-		newElement->xor = *head;
+		newElement->xor = head;
+		newElement->xor = Xor(head, NULL);
 
 		if (head != NULL) {
-			(*head)->xor = Xor((*head)->xor, newElement);
+			head->xor = Xor(head->xor, newElement);
+		}
+		else {
+			return NULL;
 		}
 
 		return newElement;
@@ -70,7 +74,7 @@ void DeletElemAddress(list_xor_t* head, list_xor_t* pointer) {
 
 	while (current != pointer) {
 
-		if (current->xor == previous && current != head) {// ->
+		if (current->xor == previous && current != head) {
 			return;
 		}
 
