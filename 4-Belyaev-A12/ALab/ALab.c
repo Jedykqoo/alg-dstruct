@@ -39,6 +39,7 @@ list_xor_t* Push(list_xor_t* head, char* str) {
 			head->xor = Xor(head->xor, newElement);
 		}
 		else {
+			free(newElement);
 			return NULL;
 		}
 
