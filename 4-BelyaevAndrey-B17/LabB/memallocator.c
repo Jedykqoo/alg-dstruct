@@ -5,19 +5,12 @@ list_t* listTail = NULL;
 int SIZE = 0;
 int flag;
 
-list_t* newEntity(int size, list_t* p) {
-	if (p[0].prev == NULL && p[0].next == 0 && p[0].size == 0) {
-
-
-	}
-}
-
 void* memalloc(int size) {
 	if (size <= 0) {
 		return NULL;
 	}
 
-	list_t* pointer = NULL;//указатель на первое подход€щее место дл€ записи
+	list_t* pointer = NULL;
 	list_t* current = listHead;
 	list_t* neoPointer = NULL;
 	int blockSize = 0;
@@ -160,4 +153,3 @@ void mefree(void* pointer) {
 		return;
 	}
 }
- 
