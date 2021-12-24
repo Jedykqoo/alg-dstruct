@@ -24,7 +24,7 @@ int flag;
 
 void* memalloc(int size) {
 	if (size <= 0 || !listHead) {
-		return 0;
+		return NULL;
 	}
 
 	list_t* pointer = NULL;
@@ -84,6 +84,8 @@ void* memalloc(int size) {
 	else {
 		flag = FROM_TAIL;
 	}
+
+	return NULL;
 }
 
 
