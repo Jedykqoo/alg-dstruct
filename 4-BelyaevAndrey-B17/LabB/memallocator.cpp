@@ -1,7 +1,3 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h> 
 #include <stdint.h>
 #include <string.h>
@@ -9,17 +5,50 @@ extern "C" {
 #include "memallocator.h"
 #define FROM_HEAD 0
 #define FROM_TAIL 1
+#define FALSE 0
+#define TRUE 1
 
 typedef struct list {
 	struct list* next;
 	struct list* prev;
-	int size;
+	uint32_t bSize;
+	uint8_t Used;
 }list_t;
 
 list_t* listHead = NULL;
 list_t* listTail = NULL;
-int SIZE = 0;
-int flag;
+uint32_t SIZE = 0;
+uint8_t flag = 1;
+
+
+list_t* getLastBlock() {
+	list_t* finder = listHead;
+	while (finder->next != NULL) {
+		finder = finder->next;
+	}
+
+	return finder;
+}
+
+void memBlockCreate(list_t* block, uint32_t size) {
+	if (block->bSize <= size)
+		return;
+
+	if (block->bSize - size < sizeof(list_t)) {
+		return;
+	}
+	list_t* newBlock = (list_t*)((uint8_t*)block + sizeof(list_t) + sizeof(uint8_t) * size);
+	newBlock->next = block->next;
+	newBlock->Used = FALSE;
+	newBlock->prev = block;
+	newBlock->bSize = block->bSize - size - sizeof(list_t);
+
+	if (block->next != NULL)
+		block->next->prev = newBlock;
+
+	block->next = newBlock;
+	block->bSize = size;
+}
 
 
 void* memalloc(int size) {
@@ -33,154 +62,106 @@ void* memalloc(int size) {
 	int blockSize = 0;
 	void* ptr;
 
-	if (flag == FROM_TAIL) {
-		current = listTail;
-	}
+	if (flag) {
+		flag = 1;
+		list_t* fromFirst = listHead;
 
-	while (current) {
-		if ((size <= abs(current->size)) && (current->size < 0)) {
-			pointer = current;
-			blockSize = -(current->size);
-
-			if (blockSize - size > sizeof(list_t)) {
-				neoPointer = (list_t*)((char*)pointer + size + sizeof(list_t));
-				neoPointer->prev = pointer;
-				neoPointer->next = pointer->next;
-				neoPointer->size = -((int)blockSize) + size + sizeof(list_t);
-
-				if (pointer->next) {
-					pointer->next->prev = neoPointer;
-				}
-
-				pointer->next = neoPointer;
-				pointer->size = size;
-
-				if (neoPointer->next == NULL) {
-					listTail = neoPointer;
-				}
+		while (fromFirst != NULL) {
+			if (!fromFirst->Used && fromFirst->bSize >= size) {
+				memBlockCreate(fromFirst, size);
+				fromFirst->Used = TRUE;
+				return (void*)((uint8_t*)fromFirst + sizeof(list_t));
 			}
-			else {
-				pointer->size = -(pointer->size);
-				if (pointer->next == NULL) {
-					listTail = pointer;
-				}
-			}
-
-			ptr = (void*)((char*)pointer + sizeof(list_t));
-
-			return ptr;
+			fromFirst = fromFirst->next;
 		}
-
-		if (flag == FROM_TAIL) {
-			current = current->prev;
-		}
-		else {
-			current = current->next;
-		}
-	}
-	if (flag == FROM_TAIL) {
-		flag = FROM_HEAD;
 	}
 	else {
-		flag = FROM_TAIL;
+		flag = 0;
+		list_t* fromLast = getLastBlock();
+
+		while (fromLast != NULL) {
+			if (!fromLast->Used && fromLast->bSize >= size) {
+				memBlockCreate(fromLast, size);
+				fromLast->Used = TRUE;
+				return (void*)((uint8_t*)fromLast + sizeof(list_t));
+			}
+			fromLast = fromLast->prev;
+		}
 	}
 
 	return NULL;
 }
 
-
-void memfree(void* pointer) {
-	list_t* free = NULL;
-
-	if (!pointer || listHead) {
-		return;
+uint8_t mergeCheck(list_t* left, list_t* right) {
+	if (left == NULL || right == NULL) {
+		return FALSE;
+	}
+	uint32_t size;
+	if (left->bSize == 0) {
+		size = 1;
 	}
 
-	free = (list_t*)((char*)pointer - sizeof(list_t));
-
-	if (!((listHead <= pointer) && (free < (listHead + SIZE - sizeof(list_t))))) {
-		return;
+	else {
+		size = left->bSize;
 	}
 
-
-	if (free->size > 0) {
-
-		free->size = -(free->size);
-
-		if (free->prev) {
-
-			if (free->prev->size < 0) {
-				list_t* left = NULL;
-				left = free->prev;
-
-				left->size = left->size + (free->size - sizeof(list_t));
-
-				if (left->next->next != NULL) {
-					left->next->next->prev = left;
-					left->next = left->next->next;
-				}
-				else {
-					left->next = NULL;
-					listTail = left;
-				}
-
-				free = left;
-
-				if (!(free->prev)) {
-					listHead = free;
-				}
-
-				pointer = NULL;
-			}
-		}
-		else {
-			listHead = free;
-		}
-
-		if (free->next) {
-			if (free->next->size < 0) {
-				list_t* right = NULL;
-					right = free->next;
-
-				free->size = free->size + free->next->size - sizeof(list_t);
-
-				if (free->next->next) {
-					free->next->next->prev = free;
-					free->next = free->next->next;
-				}
-				else {
-					free->next = NULL;
-					listTail = free;
-				}
-				if (free->prev) {
-					free->prev->next = free;
-				}
-				else {
-					listHead = free;
-				}
-			}
-
-			if (pointer) {
-				pointer = NULL;
-			}
-		}
-		else {
-			listTail = free;
+	if (left->bSize > 0) {
+		if ((uint8_t*)left + sizeof(list_t) + sizeof(uint8_t) * size == (uint8_t*)right) {
+			return TRUE;
 		}
 	}
+
+	return FALSE;
+}
+
+int8_t memBlockMerge(list_t* left, list_t* right) {
+	if (left == NULL || right == NULL)
+		return FALSE;
+
+	if (!left->Used && !right->Used)
+		if (mergeCheck(left, right)) {
+			if (right->next != NULL)
+				right->next->prev = left;
+			left->next = right->next;
+			left->bSize += right->bSize + sizeof(list_t);
+
+			return TRUE;
+		}
+	return FALSE;
 
 }
 
+void memfree(void* p) {
+	if (p == NULL) {
+		return;
+	}
+
+	list_t* free = (list_t*)((uint8_t*)p - sizeof(list_t));
+
+	free->Used = FALSE;
+
+	if (free->prev != NULL) {
+		if (memBlockMerge(free->prev, free)) {
+			free = free->prev;
+		}
+	}
+
+	if (free->next != NULL) {
+		memBlockMerge(free, free->next);
+	}
+}
+
+
 int meminit(void* pMemory, int size) {
-	if ((size <= sizeof(list_t)) || (!pMemory)) {
+	if (pMemory == NULL || (listHead != NULL) || size <= sizeof(list_t)) {
 		return 0;
 	}
 
 	listHead = (list_t*)pMemory;
-	listHead->size = -(size - memgetblocksize());
+	listHead->bSize = size - sizeof(list_t);
 	listHead->next = NULL;
 	listHead->prev = NULL;
-	listTail = listHead;
+	listHead->Used = NULL;
 
 	SIZE = size;
 	return 1;
@@ -191,28 +172,17 @@ int memgetminimumsize() {
 }
 
 void memdone() {
-	if (listHead)
-	{
-		list_t* current = listHead;
-		while (current)
-		{
-			if (current->size > 0)
-			{
-				break;
-			}
-			current = current->next;
-		}
-
-		current = NULL;
+	list_t* head = listHead;
+	uint32_t fullSize = 0;
+	while (head != NULL) {
+		fullSize += head->bSize + sizeof(list_t);
+		head = head->next;
 	}
+
 	listHead = NULL;
-	SIZE = 0;
 }
 
 int memgetblocksize() {
 	return sizeof(list_t);
 }
 
-#ifdef __cplusplus
-}
-#endif
